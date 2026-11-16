@@ -1,27 +1,42 @@
 class AppStrings {
-  final bool isAr;
-  const AppStrings(this.isAr);
+  final bool ar;
+  const AppStrings(this.ar);
 
-  String get appName => isAr ? 'عزم AI' : 'AZM AI';
-  String get tagline => isAr ? 'استعد سيطرتك على وقتك وانتباهك' : 'Reclaim your time and attention';
+  String get appName => ar ? 'عزم' : 'AZM AI';
+  String get slogan =>
+      ar ? 'خطط .. أنجز .. حقق رسالتك' : 'Plan .. Achieve .. Fulfill Your Mission';
+  String get splashVerse =>
+      '{ وَمَن جَاهَدَ فَإِنَّمَا يُجَاهِدُ لِنَفْسِهِ ۚ إِنَّ اللَّهَ لَغَنِيٌّ عَنِ الْعَالَمِينَ }';
+  String get loading => ar ? 'جاري التحميل...' : 'Loading...';
 
   // Navigation
-  String get navDashboard => isAr ? 'لوحة التحكم' : 'Dashboard';
-  String get navGoals => isAr ? 'الأهداف والمهام' : 'Goals & Tasks';
-  String get navFocus => isAr ? 'جلسة التركيز' : 'Focus';
-  String get navActivity => isAr ? 'مراقبة النشاط' : 'Activity';
-  String get navRules => isAr ? 'مقاومة التشتت' : 'Distraction Control';
-  String get navAi => isAr ? 'المساعد الذكي' : 'AI Assistant';
-  String get navAnalytics => isAr ? 'التحليلات' : 'Analytics';
-  String get navSettings => isAr ? 'الإعدادات' : 'Settings';
+  String get navDashboard => ar ? 'الرئيسية' : 'Overview';
+  String get navTasks => ar ? 'مهامي' : 'Tasks';
+  String get navGoals => ar ? 'أهدافي' : 'Goals';
+  String get navFocus => ar ? 'التركيز' : 'Focus';
+  String get navCalendar => ar ? 'التقويم' : 'Calendar';
+  String get navHabits => ar ? 'العادات وتطوري' : 'Habits & Growth';
+  String get navActivity => ar ? 'مراقبة التشتت' : 'Distraction Guard';
+  String get navAi => ar ? 'المساعد الذكي' : 'AI Assistant';
+  String get navAnalytics => ar ? 'إحصائياتي' : 'Analytics';
+  String get navSettings => ar ? 'الإعدادات' : 'Settings';
 
-  // Common
-  String get offlineReady => isAr ? 'يعمل محليًا دون إنترنت' : 'Offline-First Active';
-  String get monitoringOn => isAr ? 'المراقبة مفعّلة' : 'Monitoring On';
-  String get monitoringOff => isAr ? 'المراقبة متوقفة' : 'Monitoring Paused';
-  String get noDataYet => isAr ? 'لا توجد بيانات مسجلة بعد' : 'No recorded data yet';
-  String get add => isAr ? 'إضافة' : 'Add';
-  String get cancel => isAr ? 'إلغاء' : 'Cancel';
-  String get save => isAr ? 'حفظ' : 'Save';
-  String get delete => isAr ? 'حذف' : 'Delete';
+  // Dashboard
+  String greeting(String name) =>
+      ar ? 'مرحبًا بك، $name' : 'Welcome back, $name';
+  String get greetingSub =>
+      ar ? 'معًا نحو أهداف أكبر ويوم أكثر تركيزًا' : 'A calmer, more intentional day starts here.';
+  String get mainGoalMonth =>
+      ar ? 'هدفك الرئيسي هذا الشهر' : 'Your Main Goal This Month';
+  String get completedTasks => ar ? 'مهام مكتملة' : 'Completed';
+  String get pendingTasks => ar ? 'مهام متبقية' : 'Remaining';
+  String get activeGoals => ar ? 'أهداف نشطة' : 'Active Goals';
+  String get azmSections => ar ? 'أقسام عزم' : 'AZM Sections';
+  String get todaysFocus => ar ? 'تركيز اليوم' : "Today's Focus";
+  String get habitTracker => ar ? 'متتبع العادات' : 'Habit Tracker';
+  String get upcomingGoals => ar ? 'الأهداف القادمة' : 'Upcoming Goals';
+  String get aiRecommendations =>
+      ar ? 'توصيات المساعد الذكي' : 'AI Recommendations';
+  String get thisWeek => ar ? 'هذا الأسبوع' : 'This Week';
+  String get addNew => ar ? '+ جديد' : '+ New';
 }

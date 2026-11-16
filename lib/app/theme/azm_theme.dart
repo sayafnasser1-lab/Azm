@@ -1,85 +1,128 @@
 import 'package:flutter/material.dart';
+import 'azm_colors.dart';
 
 class AzmTheme {
-  static const Color primaryTeal = Color(0xFF0D9488);
-  static const Color brightTeal = Color(0xFF14B8A6);
-  static const Color accentAmber = Color(0xFFF59E0B);
-  static const Color alertCoral = Color(0xFFEF4444);
+  AzmTheme._();
 
-  static ThemeData darkTheme() {
-    const bg = Color(0xFF0B1120);
-    const surface = Color(0xFF131C31);
-    const card = Color(0xFF19243D);
-
-    return ThemeData(
+  static ThemeData light() {
+    final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: bg,
-      colorScheme: const ColorScheme.dark(
-        primary: brightTeal,
-        secondary: accentAmber,
-        error: alertCoral,
-        surface: surface,
-        onPrimary: Colors.black,
-        onSurface: Color(0xFFF1F5F9),
+      brightness: Brightness.light,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AzmColors.primary,
+        brightness: Brightness.light,
+        primary: AzmColors.primary,
+        secondary: AzmColors.emerald,
+        surface: AzmColors.lightSurface,
       ),
+    );
+
+    return base.copyWith(
+      scaffoldBackgroundColor: AzmColors.lightBg,
       cardTheme: CardThemeData(
-        color: card,
+        color: AzmColors.lightSurface,
         elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF263554), width: 1),
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: AzmColors.lightBorder, width: 1),
         ),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AzmColors.lightBg,
+        foregroundColor: AzmColors.lightText,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface,
+        fillColor: AzmColors.lightBg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF263554)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AzmColors.lightBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF263554)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AzmColors.lightBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AzmColors.primary, width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AzmColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
   }
 
-  static ThemeData lightTheme() {
-    const bg = Color(0xFFF4F7FA);
-    const surface = Colors.white;
-
-    return ThemeData(
+  static ThemeData dark() {
+    final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      scaffoldBackgroundColor: bg,
-      colorScheme: const ColorScheme.light(
-        primary: primaryTeal,
-        secondary: accentAmber,
-        error: alertCoral,
-        surface: surface,
-        onPrimary: Colors.white,
-        onSurface: Color(0xFF0F172A),
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AzmColors.primary,
+        brightness: Brightness.dark,
+        primary: const Color(0xFF6366F1),
+        secondary: AzmColors.emerald,
+        surface: AzmColors.darkSurface,
       ),
+    );
+
+    return base.copyWith(
+      scaffoldBackgroundColor: AzmColors.darkBg,
       cardTheme: CardThemeData(
-        color: surface,
+        color: AzmColors.darkSurface,
         elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: AzmColors.darkBorder, width: 1),
         ),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AzmColors.darkBg,
+        foregroundColor: AzmColors.darkText,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFF8FAFC),
+        fillColor: AzmColors.darkBg,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AzmColors.darkBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AzmColors.darkBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF6366F1),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );

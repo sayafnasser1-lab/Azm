@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../app/theme/azm_theme.dart';
+import '../../app/theme/azm_colors.dart';
 import '../../core/models/focus_session_model.dart';
 import '../../core/providers/app_providers.dart';
 
@@ -12,11 +12,11 @@ class FocusPage extends ConsumerStatefulWidget {
 }
 
 class _FocusPageState extends ConsumerState<FocusPage> {
-  String? _selectedTaskId;
+  String _mode = 'pomodoro';
   int _plannedMinutes = 25;
-  FocusMode _mode = FocusMode.deepWork;
+  String? _selectedTaskId;
 
-  String _formatDuration(int totalSeconds) {
+  String _fmt(int totalSeconds) {
     final m = (totalSeconds ~/ 60).toString().padLeft(2, '0');
     final s = (totalSeconds % 60).toString().padLeft(2, '0');
     return '$m:$s';
@@ -24,185 +24,177 @@ class _FocusPageState extends ConsumerState<FocusPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = (ref.watch(settingsProvider).valueOrNull?.languageCode ?? 'ar') == 'ar';
-    final activeSession = ref.watch(focusControllerProvider).valueOrNull;
+    final ar =
+        (ref.watch(settingsProvider).valueOrNull?.languageCode ?? 'ar') == 'ar';
+    final sessionsAsync = ref.watch(focusProvider);
+    final notifier = ref.read(focusProvider.notifier);
+    final active = notifier.activeSession;
     final tasks = ref.watch(tasksProvider).valueOrNull ?? [];
-    final recentSessions = ref.watch(recentFocusSessionsProvider).valueOrNull ?? [];
-    final controller = ref.read(focusControllerProvider.notifier);
+    final pendingTasks = tasks.where((t) => !t.isCompleted).toList();
 
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: ListView(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              isAr ? 'نظام جلسات التركيز' : 'Focus Sessions',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              isAr
-                  ? 'مؤقت مرتبط بساعة النظام وقاعدة البيانات لضمان الدقة حتى عند إغلاق التطبيق'
-                  : 'Wall-clock persisted timer in SQLite — survives window close & restart',
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(28),
-                child: activeSession == null
-                    ? Column(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Text(
+                      ar ? 'جلسة التركيز العميق' : 'Deep Focus Timer',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (active == null) ...[
+                      Wrap(
+                        spacing: 10,
                         children: [
-                          DropdownButtonFormField<String?>(
-                            value: _selectedTaskId,
+                          ChoiceChip(
+                            label: Text(ar ? 'بومودورو 25د' : 'Pomodoro 25m'),
+                            selected: _mode == 'pomodoro',
+                            onSelected: (_) => setState(() {
+                              _mode = 'pomodoro';
+                              _plannedMinutes = 25;
+                            }),
+                          ),
+                          ChoiceChip(
+                            label: Text(ar ? 'عمل عميق 50د' : 'Deep Work 50m'),
+                            selected: _mode == 'deep_work',
+                            onSelected: (_) => setState(() {
+                              _mode = 'deep_work';
+                              _plannedMinutes = 50;
+                            }),
+                          ),
+                          ChoiceChip(
+                            label: Text(ar ? 'جلسة قصيرة 15د' : 'Sprint 15m'),
+                            selected: _mode == 'sprint',
+                            onSelected: (_) => setState(() {
+                              _mode = 'sprint';
+                              _plannedMinutes = 15;
+                            }),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (pendingTasks.isNotEmpty)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 420),
+                          child: DropdownButtonFormField<String?>(
+                            initialValue: _selectedTaskId,
                             decoration: InputDecoration(
-                              labelText: isAr ? 'المهمة المرتبطة (اختياري)' : 'Linked Task (Optional)',
+                              labelText: ar
+                                  ? 'ربط بمهمة (اختياري)'
+                                  : 'Link to Task (optional)',
                             ),
                             items: [
                               DropdownMenuItem<String?>(
                                 value: null,
-                                child: Text(isAr ? 'جلسة تركيز حرة' : 'Free Focus Session'),
+                                child: Text(ar ? 'بدون مهمة محددة' : 'None'),
                               ),
-                              ...tasks.map(
+                              ...pendingTasks.map(
                                 (t) => DropdownMenuItem<String?>(
                                   value: t.id,
-                                  child: Text(t.title),
+                                  child: Text(
+                                    t.title,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
                             ],
-                            onChanged: (v) => setState(() => _selectedTaskId = v),
+                            onChanged: (v) =>
+                                setState(() => _selectedTaskId = v),
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<FocusMode>(
-                                  value: _mode,
-                                  decoration: InputDecoration(labelText: isAr ? 'نمط الجلسة' : 'Mode'),
-                                  items: FocusMode.values
-                                      .map((m) => DropdownMenuItem(value: m, child: Text(m.name)))
-                                      .toList(),
-                                  onChanged: (v) => setState(() => _mode = v ?? _mode),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: DropdownButtonFormField<int>(
-                                  value: _plannedMinutes,
-                                  decoration: InputDecoration(labelText: isAr ? 'المدة' : 'Duration'),
-                                  items: const [15, 25, 45, 60, 90]
-                                      .map((m) => DropdownMenuItem(value: m, child: Text('$m min')))
-                                      .toList(),
-                                  onChanged: (v) => setState(() => _plannedMinutes = v ?? 25),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          FilledButton.icon(
-                            onPressed: () => controller.startSession(
-                              taskId: _selectedTaskId,
-                              mode: _mode,
-                              plannedMinutes: _plannedMinutes,
-                            ),
-                            icon: const Icon(Icons.play_arrow_rounded),
-                            label: Text(isAr ? 'بدء جلسة التركيز' : 'Start Focus Session'),
-                          ),
-                        ],
-                      )
-                    : StreamBuilder<DateTime>(
-                        stream: controller.tickStream,
-                        initialData: DateTime.now(),
-                        builder: (context, snap) {
-                          final now = snap.data ?? DateTime.now();
-                          final remaining = activeSession.computeRemainingSeconds(now);
-                          final liveFocus = activeSession.computeLiveFocusSeconds(now);
-                          final progress = (liveFocus / (activeSession.plannedMinutes * 60))
+                        ),
+                      const SizedBox(height: 22),
+                      Text(
+                        '${_plannedMinutes.toString().padLeft(2, '0')}:00',
+                        style: const TextStyle(
+                          fontSize: 54,
+                          fontWeight: FontWeight.w900,
+                          color: AzmColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      ElevatedButton.icon(
+                        onPressed: () => notifier.startSession(
+                          mode: _mode,
+                          plannedMinutes: _plannedMinutes,
+                          taskId: _selectedTaskId,
+                        ),
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(ar ? 'بدء الجلسة الآن' : 'Start Focus'),
+                      ),
+                    ] else ...[
+                      Builder(
+                        builder: (_) {
+                          final remaining = active.computeRemainingSeconds();
+                          final elapsed = active.computeLiveFocusSeconds();
+                          final progress = (elapsed /
+                                  (active.plannedMinutes * 60).clamp(1, 99999))
                               .clamp(0.0, 1.0);
-
                           return Column(
                             children: [
-                              Text(
-                                activeSession.status == FocusSessionStatus.paused
-                                    ? (isAr ? 'متوقفة مؤقتًا' : 'Paused')
-                                    : (isAr ? 'جاري التركيز...' : 'Focusing...'),
-                                style: TextStyle(
-                                  color: activeSession.status == FocusSessionStatus.paused
-                                      ? AzmTheme.accentAmber
-                                      : AzmTheme.brightTeal,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
                               SizedBox(
-                                width: 180,
-                                height: 180,
+                                width: 170,
+                                height: 170,
                                 child: Stack(
-                                  fit: StackFit.expand,
+                                  alignment: Alignment.center,
                                   children: [
-                                    CircularProgressIndicator(
-                                      value: progress,
-                                      strokeWidth: 10,
+                                    SizedBox(
+                                      width: 170,
+                                      height: 170,
+                                      child: CircularProgressIndicator(
+                                        value: progress,
+                                        strokeWidth: 10,
+                                        backgroundColor: AzmColors.primary
+                                            .withValues(alpha: 0.14),
+                                      ),
                                     ),
-                                    Center(
-                                      child: Text(
-                                        _formatDuration(remaining),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .headlineLarge
-                                            ?.copyWith(fontWeight: FontWeight.bold),
+                                    Text(
+                                      _fmt(remaining),
+                                      style: const TextStyle(
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.w900,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                isAr
-                                    ? 'التركيز الفعلي: ${_formatDuration(liveFocus)} • الانقطاعات: ${activeSession.interruptionCount}'
-                                    : 'Actual Focus: ${_formatDuration(liveFocus)} • Interruptions: ${activeSession.interruptionCount}',
-                              ),
                               const SizedBox(height: 20),
                               Wrap(
                                 spacing: 12,
                                 children: [
-                                  if (activeSession.status == FocusSessionStatus.running)
-                                    OutlinedButton.icon(
-                                      onPressed: controller.pauseSession,
-                                      icon: const Icon(Icons.pause),
-                                      label: Text(isAr ? 'إيقاف مؤقت' : 'Pause'),
-                                    )
-                                  else
-                                    FilledButton.icon(
-                                      onPressed: controller.resumeSession,
-                                      icon: const Icon(Icons.play_arrow),
-                                      label: Text(isAr ? 'استئناف' : 'Resume'),
+                                  ElevatedButton.icon(
+                                    onPressed: () =>
+                                        notifier.pauseOrResume(active),
+                                    icon: Icon(
+                                      active.status == FocusStatus.running
+                                          ? Icons.pause
+                                          : Icons.play_arrow,
                                     ),
-                                  FilledButton.icon(
-                                    onPressed: () async {
-                                      final finished = await controller.finishSession();
-                                      if (finished != null && context.mounted) {
-                                        showDialog<void>(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            title: Text(isAr ? 'ملخص الجلسة' : 'Session Summary'),
-                                            content: Text(
-                                              isAr
-                                                  ? 'التركيز الفعلي: ${finished.actualFocusSec ~/ 60} دقيقة\nالانقطاعات: ${finished.interruptionCount}'
-                                                  : 'Actual focus: ${finished.actualFocusSec ~/ 60}m\nInterruptions: ${finished.interruptionCount}',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(ctx),
-                                                child: Text(isAr ? 'حسنًا' : 'OK'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                    },
+                                    label: Text(
+                                      active.status == FocusStatus.running
+                                          ? (ar ? 'إيقاف مؤقت' : 'Pause')
+                                          : (ar ? 'استئناف' : 'Resume'),
+                                    ),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () =>
+                                        notifier.finishSession(active),
                                     icon: const Icon(Icons.check),
-                                    label: Text(isAr ? 'إنهاء الجلسة' : 'Complete'),
+                                    label: Text(ar ? 'إنهاء وحفظ' : 'Complete'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => notifier.finishSession(
+                                      active,
+                                      cancelled: true,
+                                    ),
+                                    child: Text(ar ? 'إلغاء' : 'Cancel'),
                                   ),
                                 ],
                               ),
@@ -210,28 +202,67 @@ class _FocusPageState extends ConsumerState<FocusPage> {
                           );
                         },
                       ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             Text(
-              isAr ? 'سجل الجلسات الأخيرة' : 'Recent Sessions',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ar ? 'سجل الجلسات الأخيرة' : 'Recent Sessions',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
             ),
             const SizedBox(height: 10),
-            if (recentSessions.isEmpty)
-              Text(isAr ? 'لم تبدأ أي جلسات بعد.' : 'No sessions recorded yet.')
-            else
-              ...recentSessions.take(8).map(
-                    (s) => Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.history_rounded),
-                        title: Text('${s.mode.name} • ${s.plannedMinutes}m'),
-                        subtitle: Text(
-                          '${isAr ? "الفعلي:" : "Actual:"} ${s.actualFocusSec ~/ 60}m • ${s.status.name}',
+            sessionsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text('$e'),
+              data: (list) {
+                if (list.isEmpty) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Center(
+                        child: Text(
+                          ar
+                              ? 'لم تسجل أي جلسات تركيز بعد.'
+                              : 'No focus sessions recorded yet.',
                         ),
                       ),
                     ),
-                  ),
+                  );
+                }
+                return Column(
+                  children: list.take(10).map((s) {
+                    final mins = s.actualFocusSeconds ~/ 60;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Card(
+                        child: ListTile(
+                          leading: Icon(
+                            s.status == FocusStatus.completed
+                                ? Icons.check_circle
+                                : Icons.timelapse,
+                            color: s.status == FocusStatus.completed
+                                ? AzmColors.emerald
+                                : AzmColors.gold,
+                          ),
+                          title: Text(
+                            '${s.mode} • $mins ${ar ? "دقيقة" : "min"}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Text(
+                            s.startedAt.toLocal().toString().substring(0, 16),
+                          ),
+                          trailing: Text(s.status.name),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ],
         ),
       ),

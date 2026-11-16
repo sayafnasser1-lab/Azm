@@ -1,125 +1,89 @@
-enum GoalStatus { active, completed, archived }
-
-enum TaskPriority { low, medium, high, urgent }
-
-enum TaskStatus { todo, inProgress, completed, overdue }
+enum GoalStatus { active, completed, postponed }
 
 class GoalModel {
   final String id;
-  final String? parentGoalId;
   final String title;
-  final String whyReason;
+  final String subtitle;
+  final String category; // learning, coding, health, career, spiritual
   final GoalStatus status;
+  final int progress; // 0..100
   final DateTime? targetDate;
+  final bool isFeatured;
   final DateTime createdAt;
-  final DateTime updatedAt;
 
   const GoalModel({
     required this.id,
-    this.parentGoalId,
     required this.title,
-    required this.whyReason,
-    required this.status,
+    required this.subtitle,
+    required this.category,
+    this.status = GoalStatus.active,
+    this.progress = 0,
     this.targetDate,
+    this.isFeatured = false,
     required this.createdAt,
-    required this.updatedAt,
   });
 
-  factory GoalModel.fromMap(Map<String, Object?> map) {
+  int? get remainingDays {
+    if (targetDate == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(targetDate!.year, targetDate!.month, targetDate!.day);
+    return target.difference(today).inDays;
+  }
+
+  GoalModel copyWith({
+    String? title,
+    String? subtitle,
+    String? category,
+    GoalStatus? status,
+    int? progress,
+    DateTime? targetDate,
+    bool? isFeatured,
+  }) {
     return GoalModel(
-      id: map['id'] as String,
-      parentGoalId: map['parent_goal_id'] as String?,
-      title: map['title'] as String,
-      whyReason: (map['why_reason'] as String?) ?? '',
-      status: GoalStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => GoalStatus.active,
-      ),
-      targetDate: map['target_date'] != null
-          ? DateTime.tryParse(map['target_date'] as String)
-          : null,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
+      id: id,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      category: category ?? this.category,
+      status: status ?? this.status,
+      progress: (progress ?? this.progress).clamp(0, 100),
+      targetDate: targetDate ?? this.targetDate,
+      isFeatured: isFeatured ?? this.isFeatured,
+      createdAt: createdAt,
     );
   }
 
-  Map<String, Object?> toMap() => {
+  Map<String, dynamic> toMap() => {
         'id': id,
-        'parent_goal_id': parentGoalId,
         'title': title,
-        'why_reason': whyReason,
+        'subtitle': subtitle,
+        'category': category,
         'status': status.name,
+        'progress': progress,
         'target_date': targetDate?.toIso8601String(),
+        'is_featured': isFeatured ? 1 : 0,
         'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt.toIso8601String(),
       };
-}
 
-class TaskModel {
-  final String id;
-  final String goalId;
-  final String title;
-  final String description;
-  final TaskPriority priority;
-  final int estimatedMinutes;
-  final DateTime? dueAt;
-  final TaskStatus status;
-  final DateTime? completedAt;
-  final DateTime createdAt;
-
-  const TaskModel({
-    required this.id,
-    required this.goalId,
-    required this.title,
-    this.description = '',
-    required this.priority,
-    required this.estimatedMinutes,
-    this.dueAt,
-    required this.status,
-    this.completedAt,
-    required this.createdAt,
-  });
-
-  bool get isOverdue =>
-      status != TaskStatus.completed &&
-      dueAt != null &&
-      dueAt!.isBefore(DateTime.now());
-
-  factory TaskModel.fromMap(Map<String, Object?> map) {
-    return TaskModel(
-      id: map['id'] as String,
-      goalId: map['goal_id'] as String,
-      title: map['title'] as String,
-      description: (map['description'] as String?) ?? '',
-      priority: TaskPriority.values.firstWhere(
-        (e) => e.name == map['priority'],
-        orElse: () => TaskPriority.medium,
-      ),
-      estimatedMinutes: (map['estimated_minutes'] as int?) ?? 25,
-      dueAt: map['due_at'] != null
-          ? DateTime.tryParse(map['due_at'] as String)
+  factory GoalModel.fromMap(Map<String, dynamic> map) {
+    final statusName = (map['status'] ?? 'active').toString();
+    final status = GoalStatus.values.firstWhere(
+      (e) => e.name == statusName,
+      orElse: () => GoalStatus.active,
+    );
+    return GoalModel(
+      id: (map['id'] ?? '').toString(),
+      title: (map['title'] ?? '').toString(),
+      subtitle: (map['subtitle'] ?? '').toString(),
+      category: (map['category'] ?? 'learning').toString(),
+      status: status,
+      progress: (map['progress'] as num?)?.toInt() ?? 0,
+      targetDate: map['target_date'] != null
+          ? DateTime.tryParse(map['target_date'].toString())
           : null,
-      status: TaskStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => TaskStatus.todo,
-      ),
-      completedAt: map['completed_at'] != null
-          ? DateTime.tryParse(map['completed_at'] as String)
-          : null,
-      createdAt: DateTime.parse(map['created_at'] as String),
+      isFeatured: (map['is_featured'] == 1 || map['is_featured'] == true),
+      createdAt: DateTime.tryParse((map['created_at'] ?? '').toString()) ??
+          DateTime.now(),
     );
   }
-
-  Map<String, Object?> toMap() => {
-        'id': id,
-        'goal_id': goalId,
-        'title': title,
-        'description': description,
-        'priority': priority.name,
-        'estimated_minutes': estimatedMinutes,
-        'due_at': dueAt?.toIso8601String(),
-        'status': status.name,
-        'completed_at': completedAt?.toIso8601String(),
-        'created_at': createdAt.toIso8601String(),
-      };
 }

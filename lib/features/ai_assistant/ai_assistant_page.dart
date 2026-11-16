@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../app/theme/azm_theme.dart';
+import '../../app/theme/azm_colors.dart';
+import '../../core/models/chat_model.dart';
 import '../../core/providers/app_providers.dart';
 
 class AiAssistantPage extends ConsumerStatefulWidget {
@@ -11,158 +12,310 @@ class AiAssistantPage extends ConsumerStatefulWidget {
 }
 
 class _AiAssistantPageState extends ConsumerState<AiAssistantPage> {
-  final _ctrl = TextEditingController();
-  bool _loading = false;
+  String? _activeThreadId;
+  List<ChatMessageModel> _messages = [];
+  final TextEditingController _inputCtrl = TextEditingController();
+  bool _sending = false;
+  String _searchQuery = '';
 
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
+  Future<void> _selectThread(String threadId) async {
+    final msgs =
+        await ref.read(repositoryProvider).getChatMessages(threadId);
+    if (!mounted) return;
+    setState(() {
+      _activeThreadId = threadId;
+      _messages = msgs;
+    });
   }
 
-  Future<void> _send(String text) async {
-    final prompt = text.trim();
-    if (prompt.isEmpty || _loading) return;
-    _ctrl.clear();
-    setState(() => _loading = true);
+  Future<void> _sendMessage(bool ar) async {
+    final text = _inputCtrl.text.trim();
+    if (text.isEmpty || _sending) return;
+    _inputCtrl.clear();
 
-    final repo = ref.read(repositoryProvider);
-    await repo.saveAiMessage(role: 'user', content: prompt, providerLabel: 'User');
-    ref.invalidate(aiMessagesProvider);
+    setState(() => _sending = true);
+    try {
+      var threadId = _activeThreadId;
+      if (threadId == null) {
+        final created = await ref.read(chatThreadsProvider.notifier).createThread(
+              text.length > 28 ? '${text.substring(0, 28)}...' : text,
+            );
+        threadId = created.id;
+        _activeThreadId = threadId;
+      }
 
-    final response = await ref.read(aiOrchestratorProvider).askQuestion(prompt);
-    await repo.saveAiMessage(
-      role: 'assistant',
-      content: response.answer,
-      providerLabel: response.providerLabel,
-    );
-    ref.invalidate(aiMessagesProvider);
+      final repo = ref.read(repositoryProvider);
+      final userMsg = ChatMessageModel(
+        id: 'msg_${DateTime.now().microsecondsSinceEpoch}_u',
+        threadId: threadId,
+        role: 'user',
+        content: text,
+        createdAt: DateTime.now(),
+      );
+      await repo.insertChatMessage(userMsg);
+      setState(() => _messages = [..._messages, userMsg]);
 
-    if (mounted) setState(() => _loading = false);
+      final settings =
+          ref.read(settingsProvider).valueOrNull ??
+              await repo.getSettings();
+      final replyText = await ref.read(aiOrchestratorProvider).generateReply(
+            userPrompt: text,
+            settings: settings,
+            goals: ref.read(goalsProvider).valueOrNull ?? [],
+            tasks: ref.read(tasksProvider).valueOrNull ?? [],
+            habits: ref.read(habitsProvider).valueOrNull ?? [],
+            sessions: ref.read(focusProvider).valueOrNull ?? [],
+            activities: ref.read(activityProvider).valueOrNull ?? [],
+            runtimeGeminiApiKey: ref.read(runtimeGeminiKeyProvider),
+          );
+
+      final aiMsg = ChatMessageModel(
+        id: 'msg_${DateTime.now().microsecondsSinceEpoch}_a',
+        threadId: threadId,
+        role: 'assistant',
+        content: replyText,
+        createdAt: DateTime.now(),
+      );
+      await repo.insertChatMessage(aiMsg);
+      if (!mounted) return;
+      setState(() => _messages = [..._messages, aiMsg]);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider).valueOrNull;
-    final isAr = (settings?.languageCode ?? 'ar') == 'ar';
-    final messages = ref.watch(aiMessagesProvider).valueOrNull ?? [];
+    final ar =
+        (ref.watch(settingsProvider).valueOrNull?.languageCode ?? 'ar') == 'ar';
+    final threads = ref.watch(chatThreadsProvider).valueOrNull ?? [];
+    final filteredThreads = threads
+        .where((t) =>
+            _searchQuery.isEmpty ||
+            t.title.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
 
-    final quickPrompts = isAr
-        ? [
-            'لماذا لم أحقق هدفي اليوم؟',
-            'ما أكثر التطبيقات التي استهلكت وقتي؟',
-            'متى أكون أكثر تركيزًا؟',
-            'ما الذي يجب أن أبدأ به الآن؟',
-          ]
-        : [
-            'Why didn\'t I finish my goal today?',
-            'Which apps took most of my time?',
-            'When am I most focused?',
-            'What should I start with now?',
-          ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 850;
+        final chatPane = _buildChatPane(context, ar);
 
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    isAr ? 'المساعد الذكي — عزم AI' : 'AZM AI Assistant',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+        if (!isWide) {
+          return chatPane;
+        }
+
+        // وضع Split-Pane لسطح المكتب مستوحى من الصورة 2
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 280,
+                child: Card(
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Text(
+                              ar ? 'المحادثات الأخيرة' : 'Recent Chats',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.add_comment_outlined),
+                              tooltip: ar ? 'محادثة جديدة' : 'New Chat',
+                              onPressed: () => setState(() {
+                                _activeThreadId = null;
+                                _messages = [];
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: ar ? 'بحث في المحادثات...' : 'Search...',
+                            prefixIcon: const Icon(Icons.search, size: 18),
+                            isDense: true,
+                          ),
+                          onChanged: (v) => setState(() => _searchQuery = v),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: filteredThreads.isEmpty
+                            ? Center(
+                                child: Text(
+                                  ar ? 'لا توجد محادثات بعد' : 'No chats yet',
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: filteredThreads.length,
+                                itemBuilder: (ctx, i) {
+                                  final thr = filteredThreads[i];
+                                  final selected = thr.id == _activeThreadId;
+                                  return ListTile(
+                                    selected: selected,
+                                    leading: Icon(
+                                      thr.isPinned
+                                          ? Icons.push_pin
+                                          : Icons.chat_bubble_outline,
+                                      size: 18,
+                                    ),
+                                    title: Text(
+                                      thr.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.delete_outline,
+                                          size: 18),
+                                      onPressed: () async {
+                                        await ref
+                                            .read(chatThreadsProvider.notifier)
+                                            .remove(thr.id);
+                                        if (_activeThreadId == thr.id) {
+                                          setState(() {
+                                            _activeThreadId = null;
+                                            _messages = [];
+                                          });
+                                        }
+                                      },
+                                    ),
+                                    onTap: () => _selectThread(thr.id),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
                   ),
                 ),
-                Chip(
-                  avatar: const Icon(Icons.auto_awesome, size: 16, color: AzmTheme.brightTeal),
-                  label: Text(settings?.aiProvider.name ?? 'offlineAnalyzer'),
+              ),
+              const SizedBox(width: 14),
+              Expanded(child: chatPane),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildChatPane(BuildContext context, bool ar) {
+    return Card(
+      margin: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: AzmColors.primarySoft,
+                  child: Icon(Icons.smart_toy, color: AzmColors.primary),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  ar ? 'المساعد الذكي عزم' : 'AZM AI Assistant',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+                const Spacer(),
+                ActionChip(
+                  label: Text(ar ? 'اقتراح خطة' : 'Plan Goal'),
+                  onPressed: () {
+                    _inputCtrl.text =
+                        ar ? 'اقترح لي خطة لهدفي الحالي' : 'Suggest a goal plan';
+                    _sendMessage(ar);
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: quickPrompts
-                  .map(
-                    (q) => ActionChip(
-                      label: Text(q),
-                      onPressed: () => _send(q),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: _messages.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        ar
+                            ? 'السلام عليكم! كيف يمكنني مساعدتك في تنظيم أهدافك وتركيزك اليوم؟'
+                            : 'Hello! How can I help organize your goals and focus today?',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
                     ),
                   )
-                  .toList(),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: messages.isEmpty
-                  ? Center(
-                      child: Text(
-                        isAr
-                            ? 'اسأل عزم أي سؤال حول أهدافك، مهامك، أو أنماط تركيزك الفعلية.'
-                            : 'Ask AZM about your real goals, tasks, or focus patterns.',
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        final msg = messages[index];
-                        final isUser = msg.role == 'user';
-                        return Align(
-                          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 6),
-                            padding: const EdgeInsets.all(14),
-                            constraints: const BoxConstraints(maxWidth: 640),
-                            decoration: BoxDecoration(
-                              color: isUser
-                                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.18)
-                                  : Theme.of(context).cardTheme.color,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  msg.providerLabel,
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                ),
-                                const SizedBox(height: 4),
-                                SelectableText(msg.content),
-                              ],
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (ctx, i) {
+                      final m = _messages[i];
+                      final isUser = m.role == 'user';
+                      return Align(
+                        alignment: isUser
+                            ? AlignmentDirectional.centerEnd
+                            : AlignmentDirectional.centerStart,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          constraints: const BoxConstraints(maxWidth: 540),
+                          decoration: BoxDecoration(
+                            color: isUser
+                                ? AzmColors.primary
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: SelectableText(
+                            m.content,
+                            style: TextStyle(
+                              color: isUser ? Colors.white : null,
+                              height: 1.5,
                             ),
                           ),
-                        );
-                      },
-                    ),
-            ),
-            if (_loading) const LinearProgressIndicator(),
-            const SizedBox(height: 10),
-            Row(
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          if (_sending) const LinearProgressIndicator(minHeight: 2),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: _ctrl,
-                    onSubmitted: _send,
+                    controller: _inputCtrl,
                     decoration: InputDecoration(
-                      hintText: isAr ? 'اكتب سؤالك هنا...' : 'Ask a question...',
+                      hintText:
+                          ar ? 'اكتب سؤالك هنا...' : 'Ask AZM AI something...',
                     ),
+                    onSubmitted: (_) => _sendMessage(ar),
                   ),
                 ),
-                const SizedBox(width: 10),
-                FilledButton.icon(
-                  onPressed: _loading ? null : () => _send(_ctrl.text),
-                  icon: const Icon(Icons.send_rounded),
-                  label: Text(isAr ? 'إرسال' : 'Send'),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: _sending ? null : () => _sendMessage(ar),
+                  icon: const Icon(Icons.send),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

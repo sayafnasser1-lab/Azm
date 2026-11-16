@@ -1,73 +1,106 @@
-enum AiProviderType { offlineAnalyzer, ollamaLocal, geminiCloud }
+import 'dart:convert';
 
-class UserSettingsModel {
-  final String languageCode; // 'ar' | 'en'
+class AppSettingsModel {
+  final String userName;
+  final String userRole;
+  final String languageCode; // ar, en
   final bool isDarkMode;
-  final bool monitoringEnabled;
-  final bool storeWindowTitles; // افتراضيًا false لحماية الخصوصية
-  final int idleThresholdSec;
-  final int retentionDays;
-  final AiProviderType aiProvider;
-  final bool aiCloudConsent;
+  final bool activityMonitorConsent;
+  final bool storeWindowTitles; // false افتراضيًا لحماية الخصوصية
+  final int dataRetentionDays;
+  final String aiProviderMode; // local_offline, ollama, gemini_cloud
+  final bool cloudAiConsent;
   final String ollamaEndpoint;
   final String ollamaModel;
-  final String geminiApiKey;
+  final int defaultPomodoroMinutes;
+  final int defaultDeepWorkMinutes;
 
-  const UserSettingsModel({
+  const AppSettingsModel({
+    this.userName = 'سياف',
+    this.userRole = 'مستخدم عزم',
     this.languageCode = 'ar',
-    this.isDarkMode = true,
-    this.monitoringEnabled = true,
+    this.isDarkMode = false,
+    this.activityMonitorConsent = false,
     this.storeWindowTitles = false,
-    this.idleThresholdSec = 180,
-    this.retentionDays = 90,
-    this.aiProvider = AiProviderType.offlineAnalyzer,
-    this.aiCloudConsent = false,
+    this.dataRetentionDays = 30,
+    this.aiProviderMode = 'local_offline',
+    this.cloudAiConsent = false,
     this.ollamaEndpoint = 'http://localhost:11434',
-    this.ollamaModel = 'llama3.1',
-    this.geminiApiKey = '',
+    this.ollamaModel = 'llama3.2',
+    this.defaultPomodoroMinutes = 25,
+    this.defaultDeepWorkMinutes = 50,
   });
 
-  UserSettingsModel copyWith({
+  AppSettingsModel copyWith({
+    String? userName,
+    String? userRole,
     String? languageCode,
     bool? isDarkMode,
-    bool? monitoringEnabled,
+    bool? activityMonitorConsent,
     bool? storeWindowTitles,
-    int? idleThresholdSec,
-    int? retentionDays,
-    AiProviderType? aiProvider,
-    bool? aiCloudConsent,
+    int? dataRetentionDays,
+    String? aiProviderMode,
+    bool? cloudAiConsent,
     String? ollamaEndpoint,
     String? ollamaModel,
-    String? geminiApiKey,
+    int? defaultPomodoroMinutes,
+    int? defaultDeepWorkMinutes,
   }) {
-    return UserSettingsModel(
+    return AppSettingsModel(
+      userName: userName ?? this.userName,
+      userRole: userRole ?? this.userRole,
       languageCode: languageCode ?? this.languageCode,
       isDarkMode: isDarkMode ?? this.isDarkMode,
-      monitoringEnabled: monitoringEnabled ?? this.monitoringEnabled,
+      activityMonitorConsent:
+          activityMonitorConsent ?? this.activityMonitorConsent,
       storeWindowTitles: storeWindowTitles ?? this.storeWindowTitles,
-      idleThresholdSec: idleThresholdSec ?? this.idleThresholdSec,
-      retentionDays: retentionDays ?? this.retentionDays,
-      aiProvider: aiProvider ?? this.aiProvider,
-      aiCloudConsent: aiCloudConsent ?? this.aiCloudConsent,
+      dataRetentionDays: dataRetentionDays ?? this.dataRetentionDays,
+      aiProviderMode: aiProviderMode ?? this.aiProviderMode,
+      cloudAiConsent: cloudAiConsent ?? this.cloudAiConsent,
       ollamaEndpoint: ollamaEndpoint ?? this.ollamaEndpoint,
       ollamaModel: ollamaModel ?? this.ollamaModel,
-      geminiApiKey: geminiApiKey ?? this.geminiApiKey,
+      defaultPomodoroMinutes:
+          defaultPomodoroMinutes ?? this.defaultPomodoroMinutes,
+      defaultDeepWorkMinutes:
+          defaultDeepWorkMinutes ?? this.defaultDeepWorkMinutes,
     );
   }
-}
 
-class AiMessageModel {
-  final String id;
-  final String role; // 'user' | 'assistant'
-  final String content;
-  final String providerLabel;
-  final DateTime createdAt;
+  Map<String, dynamic> toJsonMap() => {
+        'user_name': userName,
+        'user_role': userRole,
+        'language_code': languageCode,
+        'is_dark_mode': isDarkMode,
+        'activity_monitor_consent': activityMonitorConsent,
+        'store_window_titles': storeWindowTitles,
+        'data_retention_days': dataRetentionDays,
+        'ai_provider_mode': aiProviderMode,
+        'cloud_ai_consent': cloudAiConsent,
+        'ollama_endpoint': ollamaEndpoint,
+        'ollama_model': ollamaModel,
+        'default_pomodoro_minutes': defaultPomodoroMinutes,
+        'default_deep_work_minutes': defaultDeepWorkMinutes,
+      };
 
-  const AiMessageModel({
-    required this.id,
-    required this.role,
-    required this.content,
-    required this.providerLabel,
-    required this.createdAt,
-  });
+  String toJsonString() => jsonEncode(toJsonMap());
+
+  factory AppSettingsModel.fromJsonMap(Map<String, dynamic> map) =>
+      AppSettingsModel(
+        userName: (map['user_name'] ?? 'سياف').toString(),
+        userRole: (map['user_role'] ?? 'مستخدم عزم').toString(),
+        languageCode: (map['language_code'] ?? 'ar').toString(),
+        isDarkMode: map['is_dark_mode'] == true,
+        activityMonitorConsent: map['activity_monitor_consent'] == true,
+        storeWindowTitles: map['store_window_titles'] == true,
+        dataRetentionDays: (map['data_retention_days'] as num?)?.toInt() ?? 30,
+        aiProviderMode: (map['ai_provider_mode'] ?? 'local_offline').toString(),
+        cloudAiConsent: map['cloud_ai_consent'] == true,
+        ollamaEndpoint:
+            (map['ollama_endpoint'] ?? 'http://localhost:11434').toString(),
+        ollamaModel: (map['ollama_model'] ?? 'llama3.2').toString(),
+        defaultPomodoroMinutes:
+            (map['default_pomodoro_minutes'] as num?)?.toInt() ?? 25,
+        defaultDeepWorkMinutes:
+            (map['default_deep_work_minutes'] as num?)?.toInt() ?? 50,
+      );
 }
